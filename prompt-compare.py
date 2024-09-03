@@ -1,5 +1,6 @@
 import openai
 import gradio as gr
+import os
 from dotenv import load_dotenv
 
 load_dotenv()  # take environment variables from .env.
@@ -13,7 +14,7 @@ DEFAULT_FREQUENCY_PENALTY = 0.0
 DEFAULT_PRESENCE_PENALTY = 0.0
 NUM_PAIRS = 2  # This means creating two side-by-side input/output boxes
 
-client = OpenAI(
+client = openai.OpenAI(
     # This is the default and can be omitted
     api_key=os.environ.get("OPENAI_API_KEY"),
 )
@@ -34,7 +35,7 @@ def generate_responses(prompts, model, temperature, max_tokens, top_p, frequency
                 frequency_penalty=frequency_penalty,
                 presence_penalty=presence_penalty
             )
-            result = response['choices'][0]['message']['content']
+            result = response.choices[0].message.content
         except Exception as e:
             result = f"An error occurred: {str(e)}"
         results.append(result)
