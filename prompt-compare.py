@@ -19,15 +19,16 @@ client = openai.OpenAI(
     api_key=os.environ.get("OPENAI_API_KEY"),
 )
 
-def generate_responses(prompts, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty):
+def generate_responses(prompts, input_text, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty):
     results = []
     for prompt in prompts:
+        full_prompt = f"{prompt} {input_text}"  # Append the shared text to each prompt
         try:
             response = client.chat.completions.create(
                 model=model,
                 messages=[
                     {"role": "system", "content": "You are a helpful assistant."},
-                    {"role": "user", "content": prompt},
+                    {"role": "user", "content": full_prompt},
                 ],
                 temperature=temperature,
                 max_tokens=max_tokens,
@@ -43,12 +44,13 @@ def generate_responses(prompts, model, temperature, max_tokens, top_p, frequency
 
 def gradio_interface(*args):
     prompts = args[:NUM_PAIRS]
-    model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty = args[NUM_PAIRS:]
+    input_text = args[NUM_PAIRS]  # Get the shared input text
+    model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty = args[NUM_PAIRS + 1:]
     
     if not any(prompts):
         return ["Please enter at least one prompt."] * NUM_PAIRS
     
-    return generate_responses(prompts, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty)
+    return generate_responses(prompts, input_text, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty)
 
 # Create the Gradio interface
 with gr.Blocks() as demo:
@@ -69,7 +71,10 @@ with gr.Blocks() as demo:
         for i in range(NUM_PAIRS):
             input_box = gr.Textbox(label=f"Prompt {i+1}", lines=5, placeholder=f"Enter prompt {i+1}")
             input_boxes.append(input_box)
-    
+
+    # Shared input for appending text
+    input_text_box = gr.Textbox(label="Input", lines=1, placeholder="Enter a shared input")
+
     # Row for response output boxes
     with gr.Row():
         for i in range(NUM_PAIRS):
@@ -80,7 +85,7 @@ with gr.Blocks() as demo:
 
     submit_button.click(
         fn=gradio_interface, 
-        inputs=[*input_boxes, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty], 
+        inputs=[*input_boxes, input_text_box, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty], 
         outputs=output_boxes
     )
 
