@@ -19,15 +19,15 @@ client = openai.OpenAI(
     api_key=os.environ.get("OPENAI_API_KEY"),
 )
 
-def generate_responses(prompts, input_text, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty):
+def generate_responses(prompts, input_text, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty, system_prompts):
     results = []
-    for prompt in prompts:
+    for i, prompt in enumerate(prompts):
         full_prompt = f"{prompt} {input_text}"  # Append the shared text to each prompt
         try:
             response = client.chat.completions.create(
                 model=model,
                 messages=[
-                    {"role": "system", "content": "You are a helpful assistant."},
+                    {"role": "system", "content": system_prompts[i]},  # Use customizable system prompt for each pair
                     {"role": "user", "content": full_prompt},
                 ],
                 temperature=temperature,
@@ -45,16 +45,17 @@ def generate_responses(prompts, input_text, model, temperature, max_tokens, top_
 def gradio_interface(*args):
     prompts = args[:NUM_PAIRS]
     input_text = args[NUM_PAIRS]  # Get the shared input text
-    model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty = args[NUM_PAIRS + 1:]
+    model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty = args[NUM_PAIRS + 1:NUM_PAIRS + 7]
+    system_prompts = args[NUM_PAIRS + 7:NUM_PAIRS + 7 + NUM_PAIRS]  # Get the system prompts for each pair
     
     if not any(prompts):
         return ["Please enter at least one prompt."] * NUM_PAIRS
     
-    return generate_responses(prompts, input_text, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty)
+    return generate_responses(prompts, input_text, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty, system_prompts)
 
 # Create the Gradio interface
 with gr.Blocks() as demo:
-    gr.Markdown("## OpenAI Chat Bulk Evaluator")
+    gr.Markdown("## Prompt Compare for OpenAI Chat Completions")
     
     model = gr.Textbox(label="Model", value=DEFAULT_MODEL, placeholder="e.g., gpt-4o-mini, gpt-4o")
     temperature = gr.Slider(label="Temperature", minimum=0.0, maximum=1.0, value=DEFAULT_TEMPERATURE, step=0.1)
@@ -62,15 +63,19 @@ with gr.Blocks() as demo:
     top_p = gr.Slider(label="Top-p", minimum=0.0, maximum=1.0, value=DEFAULT_TOP_P, step=0.1)
     frequency_penalty = gr.Slider(label="Frequency Penalty", minimum=-2.0, maximum=2.0, value=DEFAULT_FREQUENCY_PENALTY, step=0.1)
     presence_penalty = gr.Slider(label="Presence Penalty", minimum=-2.0, maximum=2.0, value=DEFAULT_PRESENCE_PENALTY, step=0.1)
-
+    
     input_boxes = []
+    system_prompt_boxes = []
     output_boxes = []
     
-    # Row for prompt input boxes
+    # Row for system prompt and prompt input boxes
     with gr.Row():
         for i in range(NUM_PAIRS):
-            input_box = gr.Textbox(label=f"Prompt {i+1}", lines=5, placeholder=f"Enter prompt {i+1}")
-            input_boxes.append(input_box)
+            with gr.Column():
+                system_prompt_box = gr.Textbox(label=f"System Prompt {i+1}", value="You are a helpful assistant.", placeholder=f"Enter a custom system prompt for prompt {i+1}")
+                system_prompt_boxes.append(system_prompt_box)
+                input_box = gr.Textbox(label=f"Prompt {i+1}", lines=5, placeholder=f"Enter prompt {i+1}")
+                input_boxes.append(input_box)
 
     # Shared input for appending text
     input_text_box = gr.Textbox(label="Input", lines=1, placeholder="Enter a shared input")
@@ -85,7 +90,7 @@ with gr.Blocks() as demo:
 
     submit_button.click(
         fn=gradio_interface, 
-        inputs=[*input_boxes, input_text_box, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty], 
+        inputs=[*input_boxes, input_text_box, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty, *system_prompt_boxes], 
         outputs=output_boxes
     )
 
